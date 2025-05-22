@@ -1,14 +1,7 @@
-import { useState, useRef, useEffect, useMemo, memo } from 'react';
-import { 
-  ChevronRight, 
-  Folder, 
-  FileText, 
-  Search
-} from 'lucide-react';
+// src/components/Sidebar.tsx
+import React from 'react';
+import { Node } from '../types';
 import { TreeItem } from './TreeItem';
-
-// Types
-export type Node = { name: string; nodes?: Node[]; size?: string; lastModified?: string };
 
 // Enhanced document leaf nodes with metadata
 const docNodes: Node[] = [
@@ -18,7 +11,7 @@ const docNodes: Node[] = [
   { name: 'Politique_Securite.pdf', size: '1.1 MB', lastModified: '2024-03-08' },
 ];
 
-// Confidentiality levels with colors
+// Confidentiality levels
 const confidentialityLevels = [
   'Interne',
   'Public',
@@ -27,14 +20,14 @@ const confidentialityLevels = [
   'Strictement Confidentiel',
 ];
 
-// Document types with icons
+// Document types
 const docTypes = ['Procédure', 'Charte', 'Guide', 'Politique', 'Enregistrement'];
 
 // Build second-level nodes
 const makeDocTypeNodes = (): Node[] =>
-  docTypes.map((type) => ({
+  docTypes.map(type => ({
     name: type,
-    nodes: confidentialityLevels.map((level) => ({
+    nodes: confidentialityLevels.map(level => ({
       name: level,
       nodes: docNodes,
     })),
@@ -77,98 +70,52 @@ export const rawHierarchy: Node[] = [
   },
 ];
 
-// Helper functions
-const findNode = (nodes: Node[], target: string, currentPath = ''): Node | null => {
-  for (const n of nodes) {
-    const p = currentPath ? `${currentPath}/${n.name}` : n.name;
-    if (p === target) return n;
-    if (n.nodes) {
-      const found = findNode(n.nodes, target, p);
-      if (found) return found;
-    }
-  }
-  return null;
-};
+/**
+ * Search files by name within the hierarchy.
+ */
+export const searchFiles = (
+  nodes: Node[],
+  searchTerm: string
+): Array<{ name: string; fullPath: string }> => {
+  const results: Array<{ name: string; fullPath: string }> = [];
 
-const contains = (node: Node, target: string, currentPath: string): boolean => {
-  if (currentPath === target) return true;
-  return !!node.nodes?.some((child) =>
-    contains(child, target, `${currentPath}/${child.name}`)
-  );
-};
-
-const getAllFilesWithPaths = (node: Node, basePath: string = ''): Array<{name: string, size?: string, lastModified?: string}> => {
-  const files: Array<{name: string, size?: string, lastModified?: string}> = [];
-  
-  const traverse = (currentNode: Node, currentPath: string) => {
+  const traverse = (currentNode: Node, path: string) => {
     if (!currentNode.nodes || currentNode.nodes.length === 0) {
-      files.push({ 
-        name: currentNode.name,
-        size: currentNode.size,
-        lastModified: currentNode.lastModified
-      });
+      if (currentNode.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        results.push({ name: currentNode.name, fullPath: path });
+      }
     } else {
       currentNode.nodes.forEach(child => {
-        traverse(child, `${currentPath}/${child.name}`);
+        const childPath = path ? `${path}/${child.name}` : child.name;
+        traverse(child, childPath);
       });
     }
   };
-  
-  traverse(node, basePath);
-  return files;
+
+  nodes.forEach(node => traverse(node, node.name));
+  return results;
 };
 
-const findFullPath = (nodes: Node[], targetName: string, currentPath = ''): string | null => {
-  for (const node of nodes) {
-    const fullPath = currentPath ? `${currentPath}/${node.name}` : node.name;
-    if (node.name === targetName) {
-      return fullPath;
-    }
-    if (node.nodes) {
-      const found = findFullPath(node.nodes, targetName, fullPath);
-      if (found) return found;
-    }
-  }
-  return null;
-};
-
-export function Sidebar({
-  selectedPath,
-  onSelect,
-  searchTerm,
-  onSearchChange,
-}: {
+interface SidebarProps {
   selectedPath: string | null;
   onSelect: (path: string) => void;
-  searchTerm: string;
-  onSearchChange: (term: string) => void;
-}) {
+}
+
+export function Sidebar({ selectedPath, onSelect }: SidebarProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 bg-white">
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Documents</h2>
-        
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Rechercher..."
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
+        <h2 className="text-lg font-semibold text-gray-800">Documents</h2>
       </div>
 
-      {/* Tree */}
+      {/* Folder tree */}
       <div className="flex-1 overflow-y-auto p-3">
         <ul className="space-y-1">
-          {rawHierarchy.map((node) => (
+          {rawHierarchy.map(node => (
             <TreeItem
-              node={node}
               key={node.name}
+              node={node}
               path={node.name}
               selectedPath={selectedPath}
               onSelect={onSelect}

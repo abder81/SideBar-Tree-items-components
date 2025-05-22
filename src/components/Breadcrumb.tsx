@@ -1,9 +1,12 @@
-import { ChevronRight, Home } from "lucide-react";
+// src/components/Breadcrumb.tsx
+import { ChevronRight, Home } from 'lucide-react';
 
-export function Breadcrumb({ selectedPath, onNavigate }: {
+interface BreadcrumbProps {
   selectedPath: string | null;
   onNavigate: (path: string | null) => void;
-}) {
+}
+
+export function Breadcrumb({ selectedPath, onNavigate }: BreadcrumbProps) {
   if (!selectedPath) {
     return (
       <div className="flex items-center gap-2 mb-6">
@@ -14,7 +17,6 @@ export function Breadcrumb({ selectedPath, onNavigate }: {
   }
 
   const pathParts = selectedPath.split('/');
-  
   return (
     <div className="flex items-center gap-2 mb-6 flex-wrap">
       <button
@@ -24,19 +26,17 @@ export function Breadcrumb({ selectedPath, onNavigate }: {
         <Home className="h-4 w-4 text-gray-500" />
         <span className="text-sm text-gray-600">Documents</span>
       </button>
-      
-      {pathParts.map((part, index) => {
-        const isLast = index === pathParts.length - 1;
-        const partialPath = pathParts.slice(0, index + 1).join('/');
-        
+      {pathParts.map((part, i) => {
+        const isLast = i === pathParts.length - 1;
+        const partial = pathParts.slice(0, i + 1).join('/');
         return (
-          <div key={index} className="flex items-center gap-2">
+          <div key={i} className="flex items-center gap-2">
             <ChevronRight className="h-4 w-4 text-gray-400" />
             <button
-              onClick={() => !isLast && onNavigate(partialPath)}
+              onClick={() => !isLast && onNavigate(partial)}
               className={`px-2 py-1 rounded text-sm transition-colors ${
-                isLast 
-                  ? 'text-gray-900 font-medium' 
+                isLast
+                  ? 'text-gray-900 font-medium'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
               disabled={isLast}
