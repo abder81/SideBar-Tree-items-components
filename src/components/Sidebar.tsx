@@ -37,7 +37,7 @@ const makeItem = (name: string): Node => ({
 });
 
 // Top-level hierarchy
-const rawHierarchy: Node[] = [
+export const rawHierarchy: Node[] = [
   {
     name: 'Pilotage (4)',
     nodes: [
@@ -67,19 +67,32 @@ const rawHierarchy: Node[] = [
   },
 ];
 
-export default function Sidebar() {
-  // Memoize so we don’t rebuild on every collapse toggle
-  const nodes = useMemo(() => rawHierarchy, []);
+interface SidebarProps {
+  selectedPath: string | null;
+  onSelect: (path: string) => void;
+}
 
+export default function Sidebar({
+  selectedPath,
+  onSelect,
+}: SidebarProps) {
+  // …
   return (
     <div className="p-8 max-w-full mx-auto">
-      <div className="bg-gray-200 rounded shadow p-4 ">
+      <div className="bg-gray-200 rounded shadow p-4 w-full">
         <ul>
-          {nodes.map((node) => (
-            <TreeItem node={node} key={node.name} />
+          {rawHierarchy.map((node) => (
+            <TreeItem
+              node={node}
+              key={node.name}
+              path={node.name}
+              selectedPath={selectedPath}
+              onSelect={onSelect}
+            />
           ))}
         </ul>
       </div>
     </div>
   );
 }
+

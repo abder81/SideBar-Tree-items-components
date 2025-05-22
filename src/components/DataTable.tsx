@@ -1,54 +1,63 @@
-import { useState } from 'react';
+import React, { useMemo } from 'react';
+import { Node } from './TreeItem';
 
-type Row = { id: number; nom: string };
+const findNode = (nodes: Node[], target: string, currentPath = ''): Node | null => {
+  for (const n of nodes) {
+    const p = currentPath ? `${currentPath}/${n.name}` : n.name;
+    if (p === target) return n;
+    if (n.nodes) {
+      const found = findNode(n.nodes, target, p);
+      if (found) return found;
+    }
+  }
+  return null;
+};
 
-// First-level items across all categories
-const items: string[] = [
-  'PSP-01',
-  'PSP-02',
-  'PSP-03: Piloter le SMQ et les connaissances',
-  'PSP-04',
-  'PSR-05',
-  'PSR-06',
-  'PSR-07',
-  'PSR-09',
-  'PSS-11',
-  'PSS-13',
-  'PSS-15',
-  'PSS-17',
-];
+type Props = {
+  selectedPath: string | null;
+  onSelect: (path: string) => void;
+  hierarchy: Node[];
+};
 
-export default function DataTable() {
-  const [rows] = useState<Row[]>(
-    items.map((name, idx) => ({ id: idx + 1, nom: name }))
-  );
-
-  const handleView = (id: number) => {
-    // TODO: implement view/edit action
-    console.log(`View action for row ${id}`);
-  };
+export default function DataTable({ selectedPath, onSelect, hierarchy }: Props) {
+  const rows = useMemo(() => {
+    if (!selectedPath) {
+      // show all first-level items
+      return hierarchy.flatMap((cat) => cat.nodes ?? []);
+    }
+    // drill down: find the selected node
+    const node = findNode(hierarchy, selectedPath);
+    // if it has children, flatten only the leaf files
+    return node?.nodes
+      ?.flatMap((type) => type.nodes ?? [])
+      .flatMap((level) => level.nodes ?? []) ?? [];
+  }, [selectedPath, hierarchy]);
 
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full bg-white rounded shadow">
         <thead>
           <tr className="bg-gray-100">
-            <th className="py-2 px-4 text-left">Nom</th>
-            <th className="py-2 px-4 text-left">Actions</th>
+            <th className="py-2 px-4 text-left">
+              {selectedPath ? 'Fichier' : 'Nom'}
+            </th>
+            {!selectedPath && <th className="py-2 px-4 text-left">Actions</th>}
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ id, nom }) => (
-            <tr key={id} className="border-t">
-              <td className="py-2 px-4">{nom}</td>
-              <td className="py-2 px-4">
-                <button
-                  onClick={() => handleView(id)}
-                  className="text-sky-600 hover:underline"
-                >
-                  Voir
-                </button>
-              </td>
+          {rows.map((row) => (
+            <tr key={row.name} className="border-t">
+              <td className="py-2 px-4">{row.name}</td>
+              {!selectedPath && (
+                <td className="py-2 px-4">
+                  <button
+                    onClick={() => onSelect(row.name)}
+                    className="text-sky-600 hover:underline"
+                  >
+                    Voir
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
