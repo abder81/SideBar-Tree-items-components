@@ -78,22 +78,40 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onClose, onSubmit }) => 
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
-    
+
     setIsUploading(true);
-    setError(null);
-    
+    setError(null); // Clear previous errors
+
     try {
-      onSubmit(selectedFiles);
-    } catch (error) {
-      console.error('Upload error:', error);
-      setError('Une erreur est survenue lors du téléchargement');
+      await onSubmit(selectedFiles);
+      // After a successful upload, ensure the loading state is turned off.
+      setIsUploading(false);
+      // Parent component handles further actions via onSubmit
+    } catch (err: any) {
+      console.error('Upload error:', err);
+
+      let displayMessage = "An unexpected error occurred during upload.";
+
+      if (err && err.message && typeof err.message === 'string') {
+        const firstLineOfError = err.message.split('\n')[0];
+        const specificErrorPrefix = "Error: ";
+        const indexOfSpecificError = firstLineOfError.indexOf(specificErrorPrefix);
+
+        if (indexOfSpecificError !== -1) {
+          displayMessage = firstLineOfError.substring(indexOfSpecificError + specificErrorPrefix.length);
+        } else {
+          displayMessage = firstLineOfError;
+        }
+      }
+
+      setError(displayMessage);
       setIsUploading(false);
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto scrollbar-hide">
         {/* Header */}
         <div className="relative bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-lg p-6 text-white">
           <button
@@ -163,7 +181,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onClose, onSubmit }) => 
                   Total: {(selectedFiles.reduce((acc, file) => acc + file.size, 0) / 1024 / 1024).toFixed(1)} MB
                 </div>
               </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+              <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
                 {selectedFiles.map((file, index) => (
                   <div
                     key={index}
@@ -192,42 +210,45 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onClose, onSubmit }) => 
             </div>
           )}
 
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-red-600 text-sm">{error}</p>
-            </div>
-          )}
-
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
-            <button
-              onClick={handleUpload}
-              disabled={selectedFiles.length === 0 || isUploading}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm transition-all ${
-                selectedFiles.length === 0 || isUploading
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md'
-              }`}
-            >
-              {isUploading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Téléchargement en cours...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4" />
-                  Télécharger Fichiers
-                </>
-              )}
-            </button>
-            <button
-              onClick={onClose}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors font-medium text-sm"
-            >
-              Annuler
-            </button>
+          <div className="flex flex-col gap-3">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <X className="h-4 w-4 text-red-500 flex-shrink-0" />
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={handleUpload}
+                disabled={selectedFiles.length === 0 || isUploading}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm transition-all ${
+                  selectedFiles.length === 0 || isUploading
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md'
+                }`}
+              >
+                {isUploading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Téléchargement en cours...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Télécharger Fichiers
+                  </>
+                )}
+              </button>
+              <button
+                onClick={onClose}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors font-medium text-sm"
+              >
+                Annuler
+              </button>
+            </div>
           </div>
         </div>
       </div>

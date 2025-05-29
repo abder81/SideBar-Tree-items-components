@@ -183,7 +183,7 @@ export const ArchiveForm: React.FC<ArchiveFormProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto scrollbar-hide">
         {/* Header */}
         <div className="relative bg-gradient-to-r from-amber-600 to-orange-600 rounded-t-lg p-6 text-white">
           <button

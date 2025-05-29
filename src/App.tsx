@@ -43,6 +43,22 @@ export default function App() {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Helper to check if current path allows file uploads (4th level - confidentiality levels)
+  const canUploadFiles = (path: string | null): boolean => {
+    if (!path) return false;
+    const parts = path.split('/');
+    
+    // Must be at 5th level: Original/[Process]/[ProcessCode]/[DocType]/[ConfidentialityLevel]
+    // Example: Original/Pilotage (4)/PSP-01/Procédure/Public
+    if (parts.length !== 5) return false;
+    if (parts[0] !== 'Original') return false;
+    if (!FIRST_LEVEL_ROOTS.includes(parts[1])) return false;
+    // parts[2] is the process code (PSP-01, PSR-05, etc.) - no validation needed
+    if (!docTypes.includes(parts[3])) return false;
+    if (!confidentialityLevels.includes(parts[4])) return false;
+    return true;
+  };
+
   // Helper to replace version suffix
   const replaceVersionSuffix = (fileName: string, newSuffix: string): string => {
     const [base, ...extParts] = fileName.split('.');
@@ -157,7 +173,6 @@ export default function App() {
   }, [isDragging]);
 
   // Handle upload & archive
-
   const handleFileUpload = async (files: File[], isArchive: boolean) => {
     if (!files.length) {
       throw new Error('No files to upload');
@@ -215,8 +230,9 @@ export default function App() {
           }
         } else {
           finalName = file.name;
+          // Check for existing file names - this will be thrown as an error that the form can catch
           if (existingNames.includes(finalName)) {
-            throw new Error(`Le fichier ${finalName} existe déjà`);
+            throw new Error(`Le fichier "${finalName}" existe déjà dans ce dossier`);
           }
         }
 
@@ -382,9 +398,36 @@ export default function App() {
       setArchiveFilePath(null);
     } catch (error) {
       console.error('Upload/Archive failed:', error);
-      // Error handling - modal stays open
+      // Error handling - modal stays open, error will be handled by the form
+      throw error; // Re-throw so the form can handle the error
     }
   };
+
+  // Bulk actions
+  const handleBulkDelete = async (paths: string[]) => {
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer ${paths.length} fichier(s) ?`)) {
+      paths.forEach(path => {
+        const parentPath = path.split('/').slice(0, -1).join('/');
+        if (!isProtectedPath(parentPath)) {
+          setHierarchy(prev => removeNodeInHierarchy(prev, path));
+        }
+      });
+    }
+  };
+
+  const handleBulkDownload = (paths: string[]) => {
+    // Implement your download logic here
+    console.log('Downloading files:', paths);
+  };
+
+  const handleBulkPrint = (paths: string[]) => {
+    // Implement your print logic here
+    console.log('Printing files:', paths);
+  };
+
+  // Debugging logs
+  console.log('Current path:', selectedPath);
+  console.log('Can upload:', canUploadFiles(selectedPath));
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -449,19 +492,27 @@ export default function App() {
                 >
                   <FolderPlus className="h-4 w-4" /> Créer dossier
                 </button>
-                <button
-                  onClick={handleUploadClick}
-                  className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                >
-                  <Upload className="h-4 w-4" /> Télécharger fichier
-                </button>
+
                 <button
                   onClick={() => setShowDeleteModal(true)}
                   disabled={isDeleteDisabled}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${isDeleteDisabled ? 'bg-gray-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${
+                    isDeleteDisabled ? 'bg-gray-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'
+                  }`}
                 >
                   <Trash2 className="h-4 w-4" /> Supprimer dossier
                 </button>
+
+                {/* Upload button with correct visibility condition */}
+                {canUploadFiles(selectedPath) && (
+                  <button
+                    onClick={handleUploadClick}
+                    className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                  >
+                    <Upload className="h-4 w-4" /> Télécharger fichier
+                  </button>
+                )}
+                
               </div>
             )}
           </div>
@@ -504,9 +555,11 @@ export default function App() {
               hierarchy={hierarchy}
               viewMode={viewMode}
               onCreateFolder={() => setShowCreateFolderModal(true)}
-              onDelete={handleDeleteFile}
+              onDelete={handleBulkDelete}
               onRename={handleRenameFile}
               onArchive={handleArchiveClick}
+              onDownload={handleBulkDownload}
+              onPrint={handleBulkPrint}
             />
           )}
         </div>

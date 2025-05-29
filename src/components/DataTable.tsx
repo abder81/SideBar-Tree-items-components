@@ -1,7 +1,7 @@
 // src/components/DataTable.tsx
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Node } from '../types';
-import { FileText, Folder, Eye, Download, Trash2, Archive, Edit2 } from 'lucide-react';
+import { FileText, Folder, Eye, Download, Trash2, Archive, Edit2, Printer, Check } from 'lucide-react';
 
 interface DataTableProps {
   selectedPath: string | null;
@@ -9,9 +9,11 @@ interface DataTableProps {
   hierarchy: Node[];
   viewMode: 'list' | 'grid';
   onCreateFolder: () => void;
-  onDelete: (path: string) => void;
+  onDelete: (paths: string[]) => void;  // Modified to accept array
   onRename: (path: string) => void;
   onArchive: (path: string) => void;
+  onDownload?: (paths: string[]) => void;  // New prop
+  onPrint?: (paths: string[]) => void;     // New prop
 }
 
 // Helpers
@@ -65,7 +67,12 @@ export default function DataTable({
   onDelete,
   onRename,
   onArchive,
+  onDownload,
+  onPrint,
 }: DataTableProps) {
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+
+  // Modify the row generation logic
   const { rows, showActions } = useMemo(() => {
     if (!selectedPath) {
       // First-run: show all PS* items under Original
@@ -73,24 +80,73 @@ export default function DataTable({
       const rows: Node[] = [];
       original?.nodes?.forEach(category => {
         category.nodes?.forEach(item => {
-          rows.push({ ...item, parentPath: `Original/${category.name}` });
+          rows.push({ 
+            ...item, 
+            parentPath: `Original/${category.name}`,
+            isTopLevel: true // Add this flag for top-level items
+          });
         });
       });
       return { rows, showActions: true };
     }
+
     const node = findNode(hierarchy, selectedPath);
     if (!node) return { rows: [], showActions: false };
-    return { rows: getAllFiles(node), showActions: false };
+    return { 
+      rows: getAllFiles(node), 
+      showActions: false 
+    };
   }, [selectedPath, hierarchy]);
 
-  const handleRowClick = (row: Node) => {
-    if (showActions) {
-      const full = row.parentPath ? `${row.parentPath}/${row.name}` : findFullPath(hierarchy, row.name) || row.name;
-      onSelect(full);
+  // Check if all files are selected
+  const allSelected = rows.length > 0 && selectedFiles.length === rows.length;
+  
+  // Toggle all files selection
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedFiles([]);
+    } else {
+      const newSelected = rows.map(row => `${selectedPath}/${row.name}`);
+      setSelectedFiles(newSelected);
+    }
+  };
+
+  // Toggle single file selection
+  const toggleFile = (filePath: string) => {
+    setSelectedFiles(prev =>
+      prev.includes(filePath)
+        ? prev.filter(p => p !== filePath)
+        : [...prev, filePath]
+    );
+  };
+
+  // Bulk actions handlers
+  const handleBulkDelete = () => {
+    if (selectedFiles.length > 0) {
+      onDelete(selectedFiles);
+      setSelectedFiles([]);
+    }
+  };
+
+  const handleBulkDownload = () => {
+    if (onDownload && selectedFiles.length > 0) {
+      onDownload(selectedFiles);
+      setSelectedFiles([]);
+    }
+  };
+
+  const handleBulkPrint = () => {
+    if (onPrint && selectedFiles.length > 0) {
+      onPrint(selectedFiles);
+      setSelectedFiles([]);
     }
   };
 
   if (viewMode === 'grid' && !showActions) {
+    const handleRowClick = (file: Node): void => {
+      throw new Error('Function not implemented.');
+    };
+
     return (
       <div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
@@ -114,73 +170,170 @@ export default function DataTable({
 
   return (
     <div>
+      {/* Only show bulk actions bar if we're not at top level and have selections */}
+      {selectedFiles.length > 0 && !rows.some(r => r.isTopLevel) && (
+        <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-600">
+              {selectedFiles.length} fichier(s) sélectionné(s)
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleBulkDownload}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleBulkPrint}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+            >
+              <Printer className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <table className="min-w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{showActions ? 'Nom' : 'Fichier'}</th>
+              {/* Only show checkbox column if not showing top-level items */}
+              {!rows.some(r => r.isTopLevel) && (
+                <th className="w-12 px-4 py-3">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                  </div>
+                </th>
+              )}
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {showActions ? 'Nom' : 'Fichier'}
+              </th>
               {!showActions && (
                 <>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taille</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modifié</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Taille
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Modifié
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </>
               )}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {rows.map((row, i) => (
-              <tr key={`${row.name}-${i}`} className="hover:bg-gray-50 transition-colors group cursor-pointer" onClick={() => handleRowClick(row)}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    {showActions ? <Folder className="h-5 w-5 text-blue-500 mr-3 flex-shrink-0" /> : <FileText className="h-5 w-5 text-red-500 mr-3 flex-shrink-0" />}
-                    <div className="text-sm font-medium text-gray-900 truncate">{row.name}</div>
-                  </div>
-                </td>
-                {!showActions && (
-                  <>                
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.size || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.lastModified || '-'}</td>
-                  </>
-                )}
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <div className="flex justify-end gap-2">
-                    {!showActions && (
-                      <>
-                        <button 
-                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors" 
-                          onClick={e => {
-                            e.stopPropagation();
-                            onArchive(`${selectedPath}/${row.name}`);
-                          }}
-                        >
-                          <Archive className="h-4 w-4" />
-                        </button>
-                        <button 
-                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors" 
-                          onClick={e => {
-                            e.stopPropagation();
-                            onRename(`${selectedPath}/${row.name}`);
-                          }}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button 
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded transition-colors" 
-                          onClick={e => {
-                            e.stopPropagation();
-                            onDelete(`${selectedPath}/${row.name}`);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {rows.map((row, i) => {
+              const filePath = row.isTopLevel 
+                ? `${row.parentPath}/${row.name}`
+                : `${selectedPath}/${row.name}`;
+
+              const parentPath = filePath.split('/').slice(0, -1).join('/');
+
+              const isSelected = selectedFiles.includes(filePath);
+
+              return (
+                <tr
+                  key={`${row.name}-${i}`}
+                  className={`hover:bg-gray-50 transition-colors group ${
+                    isSelected ? 'bg-blue-50' : ''
+                  } ${showActions ? 'cursor-pointer' : ''}`}  // Add cursor-pointer only for clickable rows
+                >
+                  {/* Only show checkbox cell if not a top-level item */}
+                  {!rows.some(r => r.isTopLevel) && (
+                    <td className="w-12 px-4 py-4">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleFile(filePath)}
+                          onClick={e => e.stopPropagation()}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                      </div>
+                    </td>
+                  )}
+                  <td
+                    className="px-6 py-4 whitespace-nowrap"
+                    onClick={() => showActions && onSelect(filePath)}
+                  >
+                    <div className="flex items-center">
+                      {showActions ? (
+                        <Folder className="h-5 w-5 text-blue-500 mr-3 flex-shrink-0" />
+                      ) : (
+                        <FileText className="h-5 w-5 text-red-500 mr-3 flex-shrink-0" />
+                      )}
+                      <div className="flex flex-col">
+                        {/* Only show path for non-top-level items */}
+                        {!row.isTopLevel && (
+                          <span className="text-xs text-gray-400 truncate max-w-md">
+                            {parentPath}/
+                          </span>
+                        )}
+                        <div className="text-sm font-medium text-gray-900 truncate">
+                          {row.name}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  {!showActions && (
+                    <>                
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.size || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.lastModified || '-'}</td>
+                    </>
+                  )}
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex justify-end gap-2">
+                      {!showActions && (
+                        <>
+                          <button 
+                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors" 
+                            onClick={e => {
+                              e.stopPropagation();
+                              onArchive(`${selectedPath}/${row.name}`);
+                            }}
+                          >
+                            <Archive className="h-4 w-4" />
+                          </button>
+                          <button 
+                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors" 
+                            onClick={e => {
+                              e.stopPropagation();
+                              onRename(`${selectedPath}/${row.name}`);
+                            }}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button 
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded transition-colors" 
+                            onClick={e => {
+                              e.stopPropagation();
+                              onDelete([`${selectedPath}/${row.name}`]);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

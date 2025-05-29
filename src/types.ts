@@ -1,11 +1,12 @@
 // src/types.ts
 export type Node = {
   name: string;
-  nodes?: Node[]; // Present for folders, undefined for files
-  size?: string; // Only for files
-  lastModified?: string; // Only for files
+  nodes?: Node[];
+  size?: string;
+  lastModified?: string;
   parentPath?: string;
   isUserCreated?: boolean;
+  isTopLevel?: boolean; // Add this flag
 };
 
 // Helper function to update nodes in hierarchy
