@@ -1,5 +1,7 @@
 // src/components/Breadcrumb.tsx
+import React from 'react';
 import { ChevronRight, Home } from 'lucide-react';
+import { Node } from '../types';
 
 interface BreadcrumbProps {
   selectedPath: string | null;

@@ -3,9 +3,7 @@ import React, { useState, useEffect, memo } from 'react';
 import { ChevronRight, Folder } from 'lucide-react';
 import { Node } from '../types';
 
-/**
- * Recursively checks if a node or any descendant matches the target path.
- */
+// Recursively checks if a node or any descendant matches the target path.
 const contains = (
   node: Node,
   target: string,
@@ -16,6 +14,9 @@ const contains = (
     contains(child, target, `${currentPath}/${child.name}`)
   );
 };
+
+// Add this type guard at the top of the file
+const isFolder = (node: Node): boolean => Array.isArray(node.nodes);
 
 interface TreeItemProps {
   node: Node;
@@ -32,16 +33,13 @@ export const TreeItem = memo(function TreeItem({
 }: TreeItemProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // only folders which themselves have sub-folders:
-  const folderChildren = Array.isArray(node.nodes)
-    ? node.nodes.filter(child =>
-        Array.isArray(child.nodes) && child.nodes.length > 0
-      )
-    : [];
+  // Replace the folderChildren definition in TreeItem component:
+  const folderChildren = isFolder(node) ? node.nodes?.filter(isFolder) ?? [] : [];
 
   const hasVisibleChildren = folderChildren.length > 0;
   const isSelected = path === selectedPath;
 
+  // Auto-expand if this node or any descendant is selected
   useEffect(() => {
     if (selectedPath && contains(node, selectedPath, path)) {
       setIsOpen(true);
